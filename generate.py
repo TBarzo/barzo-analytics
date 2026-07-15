@@ -92,6 +92,26 @@ def load_creator_history():
     except Exception:
         return []
 
+def load_ops_history():
+    """Read ops_history.json (dated snapshots of total events/venues) if present."""
+    try:
+        with open("ops_history.json", encoding="utf-8") as f:
+            h = json.load(f)
+        return h.get("snapshots", []) if isinstance(h, dict) else (h or [])
+    except Exception:
+        return []
+
+# Fallback totals used only if ops_history.json has no snapshots yet.
+OPS_FALLBACK = {"events": 1591, "venues": 506}
+
+def current_ops():
+    hist = load_ops_history()
+    if not hist:
+        return dict(OPS_FALLBACK)
+    latest = max(hist, key=lambda s: s.get("date", ""))
+    return {"events": latest.get("events", OPS_FALLBACK["events"]),
+            "venues": latest.get("venues", OPS_FALLBACK["venues"])}
+
 def _req(url, data=None):
     headers = {"Authorization": f"Bearer {APIKEY}", "Accept": "application/json"}
     if data is not None:
@@ -276,6 +296,8 @@ def parse():
         "ranges": ranges_out,
         "creators": current_creators(),
         "creatorHistory": load_creator_history(),
+        "ops": current_ops(),
+        "opsHistory": load_ops_history(),
     }
 
 def render(data):
@@ -381,6 +403,11 @@ TEMPLATE = r"""<!DOCTYPE html>
     <select id="creatorRange" class="crsel"><option value="all">All time</option><option value="this_month">This month</option><option value="last_month">Last month</option></select>
     <div class="rule"></div></div>
     <div class="grid" id="creators"></div>
+  </section>
+  <section class="section" id="opsSection" style="display:none"><div class="section-head"><h2>Operations</h2>
+    <select id="opsRange" class="crsel"><option value="all">All time</option><option value="today">Today</option><option value="this_week">This week</option><option value="this_month">This month</option><option value="last_month">Last month</option></select>
+    <div class="rule"></div></div>
+    <div class="kpis" id="ops" style="grid-template-columns:repeat(2,1fr);max-width:680px"></div>
   </section>
   <section class="section"><div class="section-head"><h2>Activity Over Time</h2><div class="rule"></div></div>
     <div class="grid">
@@ -531,6 +558,31 @@ if(DATA.creators && DATA.creators.length){
   if(cs && ['all','this_month','last_month'].indexOf(cs)>=0) cr.value=cs;
   cr.addEventListener('change',function(){try{localStorage.setItem('barzo_creator_range',cr.value);}catch(e){}; renderCreators(cr.value);});
   renderCreators(cr.value);
+}
+function _isoWeekStart(){ const d=new Date(); const wd=(d.getDay()+6)%7; return new Date(d.getFullYear(),d.getMonth(),d.getDate()-wd).toISOString().slice(0,10); }
+function opsSnapBefore(metric,dateISO){ const s=(DATA.opsHistory||[]).filter(function(x){return x.date<dateISO && x[metric]!=null;}).sort(function(a,b){return a.date<b.date?1:-1;}); return s.length?s[0][metric]:null; }
+function opsVal(metric,range){
+  const cur=(DATA.ops&&DATA.ops[metric])||0;
+  if(range==='all') return {n:cfmt.format(cur),cap:'total'};
+  const today=new Date().toISOString().slice(0,10);
+  if(range==='last_month'){ const endB=opsSnapBefore(metric,_isoMonthStart(0)), startB=opsSnapBefore(metric,_isoMonthStart(-1)); if(endB==null||startB==null) return {n:'—',cap:'added last month'}; const d=endB-startB; return {n:(d>=0?'+':'')+nf.format(d),cap:'added last month'}; }
+  let base=null, cap='added';
+  if(range==='today'){ base=opsSnapBefore(metric,today); cap='added today'; }
+  else if(range==='this_week'){ base=opsSnapBefore(metric,_isoWeekStart()); cap='added this week'; }
+  else if(range==='this_month'){ base=opsSnapBefore(metric,_isoMonthStart(0)); cap='added this month'; }
+  if(base==null) return {n:'—',cap:cap};
+  const d=cur-base; return {n:(d>=0?'+':'')+nf.format(d),cap:cap};
+}
+function renderOps(range){
+  document.getElementById('ops').innerHTML=[['events','Events'],['venues','Venues']].map(function(p){ const v=opsVal(p[0],range); return '<div class="kpi"><div class="label">'+p[1]+'</div><div class="value">'+v.n+'</div><div class="meta">'+v.cap+'</div></div>'; }).join('');
+}
+if(DATA.ops){
+  document.getElementById('opsSection').style.display='';
+  const orq=document.getElementById('opsRange');
+  let os=null; try{os=localStorage.getItem('barzo_ops_range');}catch(e){}
+  if(os && ['all','today','this_week','this_month','last_month'].indexOf(os)>=0) orq.value=os;
+  orq.addEventListener('change',function(){try{localStorage.setItem('barzo_ops_range',orq.value);}catch(e){}; renderOps(orq.value);});
+  renderOps(orq.value);
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 </script>

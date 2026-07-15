@@ -1,0 +1,6 @@
+{
+  "note": "Dated snapshots of total Events and total Venues counts from Barzo admin (the 'Showing 1-N of TOTAL Results' figure). Appended by the twice-daily refresh task. 'Added' figures on the dashboard are net change between snapshots (deletions offset).",
+  "snapshots": [
+    { "date": "2026-07-15", "events": 1591, "venues": 506 }
+  ]
+}

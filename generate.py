@@ -21,14 +21,29 @@ APIKEY  = os.environ.get("POSTHOG_API_KEY")
 if not APIKEY:
     sys.exit("ERROR: set POSTHOG_API_KEY (personal API key with Insight:Read + Query:Read).")
 
-# key, picker label, date_from, interval
-RANGES = [
-    ("24h", "Last 24 hours", "-24h", "hour"),
-    ("7d",  "Last 7 days",   "-7d",  "day"),
-    ("30d", "Last 30 days",  "-30d", "day"),
-    ("90d", "Last 90 days",  "-90d", "week"),
-]
 DEFAULT_RANGE = "24h"
+
+def build_ranges():
+    """Returns [(key, label, date_from, date_to, interval)] computed for 'now'.
+    date_to=None means 'up to now'."""
+    t = datetime.date.today()
+    y = t - datetime.timedelta(days=1)
+    monday = t - datetime.timedelta(days=t.weekday())
+    mstart = t.replace(day=1)
+    last_end = mstart - datetime.timedelta(days=1)
+    last_start = last_end.replace(day=1)
+    iso = lambda x: x.isoformat()
+    return [
+        ("today",      "Today",        iso(t) + "T00:00:00",          None,                      "hour"),
+        ("yesterday",  "Yesterday",    iso(y) + "T00:00:00",          iso(y) + "T23:59:59",      "hour"),
+        ("24h",        "Last 24 hours","-24h",                        None,                      "hour"),
+        ("this_week",  "This week",    iso(monday) + "T00:00:00",     None,                      "day"),
+        ("7d",         "Last 7 days",  "-7d",                         None,                      "day"),
+        ("this_month", "This month",   iso(mstart) + "T00:00:00",     None,                      "day"),
+        ("last_month", "Last month",   iso(last_start) + "T00:00:00", iso(last_end) + "T23:59:59","day"),
+        ("30d",        "Last 30 days", "-30d",                        None,                      "day"),
+        ("90d",        "Last 90 days", "-90d",                        None,                      "week"),
+    ]
 
 # Creator stats snapshot (Barzo admin is login-only, so these are baked in here and
 # refreshed by editing this list — the local scheduled task keeps the Desktop copy live).
@@ -94,10 +109,10 @@ def get_source(iid):
         return q.get("source") or {}, (q.get("source") or {}).get("kind")
     return q, q.get("kind")
 
-def run_query(source, date_from, interval):
+def run_query(source, date_from, date_to, interval):
     """POST the query with an overridden date range/interval; return the results list."""
     src = copy.deepcopy(source)
-    src["dateRange"] = {"date_from": date_from, "date_to": None}
+    src["dateRange"] = {"date_from": date_from, "date_to": date_to}
     if "interval" in src and src.get("kind") in ("TrendsQuery", "StickinessQuery", "LifecycleQuery"):
         src["interval"] = interval
     resp = _req(f"{HOST}/api/projects/{PROJECT}/query/", {"query": src})
@@ -237,8 +252,9 @@ def parse():
             print(f"WARN source {iid} ({key}): {e}", file=sys.stderr)
             sources[key] = ({}, None)
 
+    RANGES = build_ranges()
     ranges_out = {}
-    for rkey, rlabel, dfrom, interval in RANGES:
+    for rkey, rlabel, dfrom, dto, interval in RANGES:
         raw = {}
         for iid, key in INSIGHTS.items():
             src, _kind = sources[key]
@@ -246,7 +262,7 @@ def parse():
                 raw[key] = []
                 continue
             try:
-                raw[key] = run_query(src, dfrom, interval)
+                raw[key] = run_query(src, dfrom, dto, interval)
             except Exception as e:
                 print(f"WARN query {key} @ {rkey}: {e}", file=sys.stderr)
                 raw[key] = []
@@ -255,8 +271,8 @@ def parse():
 
     return {
         "default": DEFAULT_RANGE,
-        "rangeLabels": {k: l for (k, l, _, _) in RANGES},
-        "order": [k for (k, _, _, _) in RANGES],
+        "rangeLabels": {k: l for (k, l, _, _, _) in RANGES},
+        "order": [k for (k, _, _, _, _) in RANGES],
         "ranges": ranges_out,
         "creators": current_creators(),
         "creatorHistory": load_creator_history(),

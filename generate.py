@@ -267,6 +267,8 @@ TEMPLATE = r"""<!DOCTYPE html>
   .card .chartbox{position:relative;flex:1;width:100%}
   .viewall{margin-top:12px;align-self:flex-start;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:500;cursor:pointer}
   .viewall:hover{border-color:var(--accent);color:var(--accent)}
+  .viewall.is-disabled{opacity:.45;cursor:default}
+  .viewall.is-disabled:hover{border-color:var(--border);color:var(--muted)}
   .s4{grid-column:span 4}.s6{grid-column:span 6}.s8{grid-column:span 8}.s12{grid-column:span 12}
   .funnel{display:flex;align-items:center;justify-content:space-around;gap:16px;padding:8px 0 4px}
   .funnel .step{text-align:center;flex:1}.funnel .step .n{font-size:34px;font-weight:750}
@@ -356,13 +358,12 @@ function drawBreakdown(id,cfg,color){
   box.style.height=Math.max(180,n*30+24)+'px';
   hbar(id,cut,color);
   let btn=document.getElementById('x_'+id);
-  if(total>DEFAULT_ROWS){
-    if(!btn){btn=document.createElement('button');btn.id='x_'+id;btn.className='viewall';
-      btn.addEventListener('click',function(){expanded[id]=!expanded[id];drawBreakdown(id,cfg,color);});
-      card.appendChild(btn);}
-    btn.textContent=isExp?'Show less':('View all '+total+' ▾');
-    btn.style.display='';
-  }else if(btn){btn.style.display='none';}
+  if(!btn){btn=document.createElement('button');btn.id='x_'+id;btn.className='viewall';
+    btn.addEventListener('click',function(){ if(total<=DEFAULT_ROWS) return; expanded[id]=!expanded[id];drawBreakdown(id,cfg,color);});
+    card.appendChild(btn);}
+  btn.style.display='';
+  if(total<=DEFAULT_ROWS){ btn.textContent='All '+total+' shown'; btn.classList.add('is-disabled'); }
+  else { btn.textContent=isExp?'Show less ▴':('View all '+total+' ▾'); btn.classList.remove('is-disabled'); }
 }
 function doughnut(id,cfg){mk(id,{type:'doughnut',data:{labels:cfg.labels,datasets:[{data:cfg.data,backgroundColor:PALETTE,borderColor:"#0F0F0F",borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:"#B5B5B5"}}}}});}
 

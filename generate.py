@@ -114,6 +114,10 @@ def build_range(raw, interval):
             nm = s.get("breakdown_value")
             if isinstance(nm, list): nm = ", ".join(map(str, nm))
             nm = str(nm)
+            low = nm.lower()
+            # normalize PostHog's internal sentinels + empties to friendly labels
+            if "posthog_breakdown_other" in low: nm = "Other"
+            elif "posthog_breakdown_null" in low or nm.strip() in ("", "null", "None", "nan"): nm = "None"
             val = s.get("aggregated_value")
             if val is None: val = sum(s.get("data") or [])
             if any(d.lower() in nm.lower() for d in drop): continue

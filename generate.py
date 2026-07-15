@@ -30,6 +30,15 @@ RANGES = [
 ]
 DEFAULT_RANGE = "24h"
 
+# Creator stats snapshot (Barzo admin is login-only, so these are baked in here and
+# refreshed by editing this list — the local scheduled task keeps the Desktop copy live).
+CREATORS = [
+    {"name": "Ezz Marie", "handle": "EzzMariePours", "id": "871f27c2-fd34-4db7-8294-51af28253b23", "followers": "137", "following": "308", "posts": "256", "likes": "2.7K"},
+    {"name": "Rodney Charelus", "handle": "Rodneyc3", "id": "b739d3c9-27fc-4d30-ada9-5b2e9f247d93", "followers": "11", "following": "21", "posts": "18", "likes": "48"},
+    {"name": "Broderick Scott", "handle": "Buckwheat", "id": "908355d1-134b-4bf7-ac19-96a694129cc3", "followers": "4", "following": "3", "posts": "2", "likes": "6"},
+    {"name": "AJ Hall", "handle": "AJHALLSELECTS", "id": "2f422da9-5ef7-4aa2-b1ee-a199c2ce9c19", "followers": "0", "following": "1", "posts": "0", "likes": "0"},
+]
+
 # insight numeric id -> role key
 INSIGHTS = {
     9701865: "wau", 9701864: "dau", 9708024: "opens", 9706170: "new_accounts",
@@ -222,6 +231,7 @@ def parse():
         "rangeLabels": {k: l for (k, l, _, _) in RANGES},
         "order": [k for (k, _, _, _) in RANGES],
         "ranges": ranges_out,
+        "creators": CREATORS,
     }
 
 def render(data):
@@ -269,6 +279,13 @@ TEMPLATE = r"""<!DOCTYPE html>
   .viewall:hover{border-color:var(--accent);color:var(--accent)}
   .viewall.is-disabled{opacity:.45;cursor:default}
   .viewall.is-disabled:hover{border-color:var(--border);color:var(--muted)}
+  .creator .ch{margin-bottom:12px}
+  .creator .cn{font-size:15px;font-weight:650}
+  .creator .cu{font-size:11px;color:var(--muted)}
+  .creator .cstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .cstat{background:var(--panel-2);border-radius:9px;padding:10px 6px;text-align:center}
+  .cstat .n{font-size:20px;font-weight:750;line-height:1}
+  .cstat .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:4px}
   .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
   .modal-panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;width:min(760px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6)}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
@@ -312,6 +329,9 @@ TEMPLATE = r"""<!DOCTYPE html>
 </header>
 <main>
   <section class="section"><div class="section-head"><h2>Key Metrics</h2><div class="rule"></div></div><div class="kpis" id="kpis"></div></section>
+  <section class="section" id="creatorsSection" style="display:none"><div class="section-head"><h2>Creators</h2><div class="rule"></div></div>
+    <div class="grid" id="creators"></div>
+  </section>
   <section class="section"><div class="section-head"><h2>Activity Over Time</h2><div class="rule"></div></div>
     <div class="grid">
       <div class="card s6"><h3>Active Users</h3><p class="cdesc">Unique users over time</p><div class="chartbox" style="height:260px"><canvas id="c_dau"></canvas></div></div>
@@ -429,6 +449,15 @@ sel.addEventListener('change',()=>{try{localStorage.setItem('barzo_range',sel.va
 
 render(initial);
 document.getElementById('updated').textContent='Updated '+new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+if(DATA.creators && DATA.creators.length){
+  document.getElementById('creatorsSection').style.display='';
+  document.getElementById('creators').innerHTML=DATA.creators.map(function(c){
+    const stat=function(n,l){return '<div class="cstat"><div class="n">'+esc(String(c[n]))+'</div><div class="l">'+l+'</div></div>';};
+    return '<div class="card s6"><div class="creator"><div class="ch"><div class="cn">'+esc(c.name)+'</div><div class="cu">@'+esc(c.handle)+'</div></div>'
+      +'<div class="cstats">'+stat('followers','Followers')+stat('following','Following')+stat('posts','Posts')+stat('likes','Likes')+'</div></div></div>';
+  }).join('');
+  if(DATA.creatorsUpdated){ const f=document.getElementById('gen'); }
+}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 </script>
 </body>

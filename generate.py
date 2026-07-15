@@ -182,10 +182,10 @@ def build_range(raw, interval):
         "reg": {"days": rr_days, "accounts": acc, "free": fdr, "drinks": dre},
         "sys": {"days": sys_days, "smiles": ssent, "signups": sreg},
         "smiles_by_type": {"days": st_days, "series": st_series},
-        "top_screens": breakdown("top_screens", top=11, drop=()),
-        "top_venues_v": breakdown("top_venues_v", top=12),
-        "top_events_v": breakdown("top_events_v", top=8),
-        "top_venues_c": breakdown("top_venues_c", top=8),
+        "top_screens": breakdown("top_screens", top=30, drop=()),
+        "top_venues_v": breakdown("top_venues_v", top=30),
+        "top_events_v": breakdown("top_events_v", top=30),
+        "top_venues_c": breakdown("top_venues_c", top=30),
         "alert_int": breakdown("alert_int", drop=()),
         "perm_denials": breakdown("perm_denials", drop=()),
         "funnel": {"shown": f0, "viewed": f1, "conv": conv},
@@ -261,10 +261,12 @@ TEMPLATE = r"""<!DOCTYPE html>
   .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
   .kpi .value{font-size:30px;font-weight:750;line-height:1;letter-spacing:-.5px}
   .kpi .meta{font-size:11px;color:var(--muted);margin-top:6px;min-height:0}
-  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap);align-items:start}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px 14px;min-width:0;display:flex;flex-direction:column}
   .card h3{font-size:14px;font-weight:600;margin:0 0 2px}.card .cdesc{font-size:11px;color:var(--muted);margin:0 0 12px}
   .card .chartbox{position:relative;flex:1;width:100%}
+  .viewall{margin-top:12px;align-self:flex-start;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:500;cursor:pointer}
+  .viewall:hover{border-color:var(--accent);color:var(--accent)}
   .s4{grid-column:span 4}.s6{grid-column:span 6}.s8{grid-column:span 8}.s12{grid-column:span 12}
   .funnel{display:flex;align-items:center;justify-content:space-around;gap:16px;padding:8px 0 4px}
   .funnel .step{text-align:center;flex:1}.funnel .step .n{font-size:34px;font-weight:750}
@@ -336,12 +338,32 @@ const noLegend={legend:{display:false}};
 const legendTop={legend:{position:"top",labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:"#B5B5B5"}}};
 const nf=new Intl.NumberFormat('en-US');
 const CHARTS={};
+const expanded={};
+const DEFAULT_ROWS=8;
 const lineDS=(label,data,color,fill)=>({label,data,borderColor:color,backgroundColor:fill?color+"33":color,pointRadius:2,pointHoverRadius:4,borderWidth:2,tension:.35,fill:!!fill});
 
 function mk(id,cfg){ if(CHARTS[id]){CHARTS[id].destroy();} CHARTS[id]=new Chart(document.getElementById(id),cfg); }
 function lineChart(id,labels,datasets,plugins){mk(id,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:plugins||noLegend,scales:{x:axis({grid:{display:false}}),y:axis({beginAtZero:true})}}});}
 function barChart(id,labels,data){mk(id,{type:'bar',data:{labels,datasets:[{data,backgroundColor:RED,borderRadius:4,maxBarThickness:26}]},options:{responsive:true,maintainAspectRatio:false,plugins:noLegend,scales:{x:axis({grid:{display:false}}),y:axis({beginAtZero:true})}}});}
 function hbar(id,cfg,color){mk(id,{type:'bar',data:{labels:cfg.labels,datasets:[{data:cfg.data,backgroundColor:color||RED,borderRadius:4,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:noLegend,scales:{x:axis({beginAtZero:true}),y:axis({grid:{display:false}})}}});}
+function drawBreakdown(id,cfg,color){
+  const canvas=document.getElementById(id); if(!canvas) return;
+  const box=canvas.parentElement, card=canvas.closest('.card');
+  const total=(cfg.labels||[]).length;
+  const isExp=!!expanded[id];
+  const n=isExp?total:Math.min(DEFAULT_ROWS,total);
+  const cut={labels:cfg.labels.slice(0,n),data:cfg.data.slice(0,n)};
+  box.style.height=Math.max(180,n*30+24)+'px';
+  hbar(id,cut,color);
+  let btn=document.getElementById('x_'+id);
+  if(total>DEFAULT_ROWS){
+    if(!btn){btn=document.createElement('button');btn.id='x_'+id;btn.className='viewall';
+      btn.addEventListener('click',function(){expanded[id]=!expanded[id];drawBreakdown(id,cfg,color);});
+      card.appendChild(btn);}
+    btn.textContent=isExp?'Show less':('View all '+total+' ▾');
+    btn.style.display='';
+  }else if(btn){btn.style.display='none';}
+}
 function doughnut(id,cfg){mk(id,{type:'doughnut',data:{labels:cfg.labels,datasets:[{data:cfg.data,backgroundColor:PALETTE,borderColor:"#0F0F0F",borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:"#B5B5B5"}}}}});}
 
 function render(key){
@@ -353,10 +375,10 @@ function render(key){
   lineChart('c_sys',d.sys.days,[lineDS('Smiles sent',d.sys.smiles,RED),lineDS('SYS signups',d.sys.signups,BLUE)],legendTop);
   const stColors=[RED,BLUE,AMBER,TEAL,PURPLE];
   mk('c_smiletype',{type:'bar',data:{labels:d.smiles_by_type.days,datasets:(d.smiles_by_type.series||[]).map((s,i)=>({label:s.label,data:s.data,backgroundColor:stColors[i%stColors.length]}))},options:{responsive:true,maintainAspectRatio:false,plugins:legendTop,scales:{x:Object.assign(axis({grid:{display:false}}),{stacked:true}),y:Object.assign(axis({beginAtZero:true}),{stacked:true})}}});
-  hbar('c_screens',d.top_screens,RED);
-  hbar('c_venuesv',d.top_venues_v,RED);
-  hbar('c_events',d.top_events_v,BLUE);
-  hbar('c_venuesc',d.top_venues_c,AMBER);
+  drawBreakdown('c_screens',d.top_screens,RED);
+  drawBreakdown('c_venuesv',d.top_venues_v,RED);
+  drawBreakdown('c_events',d.top_events_v,BLUE);
+  drawBreakdown('c_venuesc',d.top_venues_c,AMBER);
   doughnut('c_alertint',d.alert_int);
   doughnut('c_perm',d.perm_denials);
   document.getElementById('f_shown').textContent=nf.format(d.funnel.shown);

@@ -32,12 +32,30 @@ DEFAULT_RANGE = "24h"
 
 # Creator stats snapshot (Barzo admin is login-only, so these are baked in here and
 # refreshed by editing this list — the local scheduled task keeps the Desktop copy live).
+# Creator metadata. The live numbers come from the latest snapshot in creators_history.json
+# (maintained by the twice-daily refresh task); the fallbacks here are used only if no history exists.
 CREATORS = [
-    {"name": "Ezz Marie", "handle": "EzzMariePours", "id": "871f27c2-fd34-4db7-8294-51af28253b23", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/871f27c2-fd34-4db7-8294-51af28253b23/content/IMG_2268.jpeg", "followers": "137", "following": "308", "posts": "256", "likes": "2.7K"},
-    {"name": "Rodney Charelus", "handle": "Rodneyc3", "id": "b739d3c9-27fc-4d30-ada9-5b2e9f247d93", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/b739d3c9-27fc-4d30-ada9-5b2e9f247d93/content/IMG_7318.jpeg", "followers": "11", "following": "21", "posts": "18", "likes": "48"},
-    {"name": "Broderick Scott", "handle": "Buckwheat", "id": "908355d1-134b-4bf7-ac19-96a694129cc3", "img": "", "followers": "4", "following": "3", "posts": "2", "likes": "6"},
-    {"name": "AJ Hall", "handle": "AJHALLSELECTS", "id": "2f422da9-5ef7-4aa2-b1ee-a199c2ce9c19", "img": "", "followers": "0", "following": "1", "posts": "0", "likes": "0"},
+    {"name": "Ezz Marie", "handle": "EzzMariePours", "id": "871f27c2-fd34-4db7-8294-51af28253b23", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/871f27c2-fd34-4db7-8294-51af28253b23/content/IMG_2268.jpeg", "followers": 137, "following": 308, "posts": 256, "likes": 2700},
+    {"name": "Rodney Charelus", "handle": "Rodneyc3", "id": "b739d3c9-27fc-4d30-ada9-5b2e9f247d93", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/b739d3c9-27fc-4d30-ada9-5b2e9f247d93/content/IMG_7318.jpeg", "followers": 11, "following": 21, "posts": 18, "likes": 48},
+    {"name": "Broderick Scott", "handle": "Buckwheat", "id": "908355d1-134b-4bf7-ac19-96a694129cc3", "img": "", "followers": 4, "following": 3, "posts": 2, "likes": 6},
+    {"name": "AJ Hall", "handle": "AJHALLSELECTS", "id": "2f422da9-5ef7-4aa2-b1ee-a199c2ce9c19", "img": "", "followers": 0, "following": 1, "posts": 0, "likes": 0},
 ]
+
+def current_creators():
+    """Merge creator metadata with the most recent snapshot's numbers."""
+    hist = load_creator_history()
+    latest = max(hist, key=lambda s: s.get("date", ""))["stats"] if hist else {}
+    out = []
+    for c in CREATORS:
+        s = latest.get(c["id"], {})
+        out.append({
+            "name": c["name"], "handle": c["handle"], "id": c["id"], "img": c["img"],
+            "followers": s.get("followers", c["followers"]),
+            "following": s.get("following", c["following"]),
+            "posts": s.get("posts", c["posts"]),
+            "likes": s.get("likes", c["likes"]),
+        })
+    return out
 
 # insight numeric id -> role key
 INSIGHTS = {
@@ -49,6 +67,15 @@ INSIGHTS = {
     9707840: "top_venues_v", 9708954: "top_events_v", 9709004: "top_venues_c",
     9708390: "perm_denials", 9708054: "alert_int", 9708125: "funnel",
 }
+
+def load_creator_history():
+    """Read creators_history.json (list of dated snapshots) if present."""
+    try:
+        with open("creators_history.json", encoding="utf-8") as f:
+            h = json.load(f)
+        return h.get("snapshots", []) if isinstance(h, dict) else (h or [])
+    except Exception:
+        return []
 
 def _req(url, data=None):
     headers = {"Authorization": f"Bearer {APIKEY}", "Accept": "application/json"}
@@ -231,7 +258,8 @@ def parse():
         "rangeLabels": {k: l for (k, l, _, _) in RANGES},
         "order": [k for (k, _, _, _) in RANGES],
         "ranges": ranges_out,
-        "creators": CREATORS,
+        "creators": current_creators(),
+        "creatorHistory": load_creator_history(),
     }
 
 def render(data):
@@ -288,6 +316,8 @@ TEMPLATE = r"""<!DOCTYPE html>
   .cstat{background:var(--panel-2);border-radius:9px;padding:10px 6px;text-align:center}
   .cstat .n{font-size:20px;font-weight:750;line-height:1}
   .cstat .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:4px}
+  select.crsel{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 26px 5px 10px;font-size:11px;font-weight:600;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238C8C8C' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 8px center}
+  select.crsel:hover{border-color:var(--accent)}
   .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
   .modal-panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;width:min(760px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6)}
   .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
@@ -331,7 +361,9 @@ TEMPLATE = r"""<!DOCTYPE html>
 </header>
 <main>
   <section class="section"><div class="section-head"><h2>Key Metrics</h2><div class="rule"></div></div><div class="kpis" id="kpis"></div></section>
-  <section class="section" id="creatorsSection" style="display:none"><div class="section-head"><h2>Creators</h2><div class="rule"></div></div>
+  <section class="section" id="creatorsSection" style="display:none"><div class="section-head"><h2>Creators</h2>
+    <select id="creatorRange" class="crsel"><option value="all">All time</option><option value="this_month">This month</option><option value="last_month">Last month</option></select>
+    <div class="rule"></div></div>
     <div class="grid" id="creators"></div>
   </section>
   <section class="section"><div class="section-head"><h2>Activity Over Time</h2><div class="rule"></div></div>
@@ -382,6 +414,7 @@ const axis=(e={})=>Object.assign({grid:{color:GRID},ticks:{color:"#8C8C8C"},bord
 const noLegend={legend:{display:false}};
 const legendTop={legend:{position:"top",labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:"#B5B5B5"}}};
 const nf=new Intl.NumberFormat('en-US');
+const cfmt=new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1});
 const CHARTS={};
 const expanded={};
 const DEFAULT_ROWS=8;
@@ -451,16 +484,37 @@ sel.addEventListener('change',()=>{try{localStorage.setItem('barzo_range',sel.va
 
 render(initial);
 document.getElementById('updated').textContent='Updated '+new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-if(DATA.creators && DATA.creators.length){
-  document.getElementById('creatorsSection').style.display='';
-  document.getElementById('creators').innerHTML=DATA.creators.map(function(c){
-    const stat=function(n,l){return '<div class="cstat"><div class="n">'+esc(String(c[n]))+'</div><div class="l">'+l+'</div></div>';};
+function pnum(v){ if(typeof v==='number') return v; v=String(v).trim().toUpperCase(); if(v.endsWith('K')) return Math.round(parseFloat(v)*1000); if(v.endsWith('M')) return Math.round(parseFloat(v)*1e6); const n=parseInt(v.replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+function _isoMonthStart(off){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth()+off,1).toISOString().slice(0,10); }
+function _isoMonthEnd(off){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth()+off+1,0).toISOString().slice(0,10); }
+function _snap(id,stat,fromISO,toISO,first){
+  const s=(DATA.creatorHistory||[]).filter(function(x){return x.date>=fromISO&&x.date<=toISO&&x.stats&&x.stats[id]&&x.stats[id][stat]!=null;});
+  if(!s.length) return null; s.sort(function(a,b){return a.date<b.date?-1:1;});
+  return pnum((first?s[0]:s[s.length-1]).stats[id][stat]);
+}
+function creatorVal(c,stat,range){
+  if(range==='all') return cfmt.format(pnum(c[stat]));
+  const cur=pnum(c[stat]), today=new Date().toISOString().slice(0,10);
+  if(range==='this_month'){ const base=_snap(c.id,stat,_isoMonthStart(0),today,true); if(base==null) return '—'; const d=cur-base; return (d>=0?'+':'')+nf.format(d); }
+  if(range==='last_month'){ const a=_snap(c.id,stat,_isoMonthStart(-1),_isoMonthEnd(-1),true), b=_snap(c.id,stat,_isoMonthStart(-1),_isoMonthEnd(-1),false); if(a==null||b==null) return '—'; const d=b-a; return (d>=0?'+':'')+nf.format(d); }
+  return String(c[stat]);
+}
+function renderCreators(range){
+  document.getElementById('creators').innerHTML=(DATA.creators||[]).map(function(c){
     const ini=(c.name||'?').trim().split(/\s+/).map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
     const av=c.img?('<div class="cav"><img src="'+esc(c.img)+'" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=\''+ini+'\'"></div>'):('<div class="cav">'+ini+'</div>');
+    const stat=function(n,l){return '<div class="cstat"><div class="n">'+esc(String(creatorVal(c,n,range)))+'</div><div class="l">'+l+'</div></div>';};
     return '<div class="card s6"><div class="creator"><div class="ch">'+av+'<div><div class="cn">'+esc(c.name)+'</div><div class="cu">@'+esc(c.handle)+'</div></div></div>'
       +'<div class="cstats">'+stat('followers','Followers')+stat('following','Following')+stat('posts','Posts')+stat('likes','Likes')+'</div></div></div>';
   }).join('');
-  if(DATA.creatorsUpdated){ const f=document.getElementById('gen'); }
+}
+if(DATA.creators && DATA.creators.length){
+  document.getElementById('creatorsSection').style.display='';
+  const cr=document.getElementById('creatorRange');
+  let cs=null; try{cs=localStorage.getItem('barzo_creator_range');}catch(e){}
+  if(cs && ['all','this_month','last_month'].indexOf(cs)>=0) cr.value=cs;
+  cr.addEventListener('change',function(){try{localStorage.setItem('barzo_creator_range',cr.value);}catch(e){}; renderCreators(cr.value);});
+  renderCreators(cr.value);
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 </script>

@@ -127,11 +127,11 @@ def build_range(raw, interval):
     if dau_data: dau_days, (dau_data,) = trim_leading_zero(dau_days, [dau_data])
     if opens_data: opens_days, (opens_data,) = trim_leading_zero(opens_days, [opens_data])
 
-    dau_peak = max(dau_data) if (dau_data and interval != "hour") else None
+    dau_peak = max(dau_data) if dau_data else 0
     kpis = [
-        {"label": "Active Users (WAU)", "value": agg("wau")},
-        {"label": "Active Users (DAU)", "value": (agg("dau") or (dau_data[-1] if dau_data else 0)),
-         "meta": (f"peak {dau_peak}" if dau_peak is not None else "")},
+        {"label": "Active Users", "value": agg("wau"), "meta": "unique in range"},
+        {"label": "Peak Active Users", "value": dau_peak,
+         "meta": ("busiest hour" if interval == "hour" else "busiest day")},
         {"label": "App Opens", "value": sum(opens_data) if opens_data else agg("opens")},
         {"label": "New Accounts", "value": agg("new_accounts")},
         {"label": "Smiles Sent", "value": agg("smiles_sent")},

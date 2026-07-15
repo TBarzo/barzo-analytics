@@ -565,12 +565,12 @@ function opsVal(metric,range){
   const cur=(DATA.ops&&DATA.ops[metric])||0;
   if(range==='all') return {n:nf.format(cur),cap:'total'};
   const today=new Date().toISOString().slice(0,10);
-  if(range==='last_month'){ const endB=opsSnapBefore(metric,_isoMonthStart(0)), startB=opsSnapBefore(metric,_isoMonthStart(-1)); if(endB==null||startB==null) return {n:'—',cap:'added last month'}; const d=endB-startB; return {n:(d>=0?'+':'')+nf.format(d),cap:'added last month'}; }
+  if(range==='last_month'){ const endB=opsSnapBefore(metric,_isoMonthStart(0)), startB=opsSnapBefore(metric,_isoMonthStart(-1)); if(endB==null||startB==null) return {n:'—',cap:'collecting…'}; const d=endB-startB; return {n:(d>=0?'+':'')+nf.format(d),cap:'added last month'}; }
   let base=null, cap='added';
   if(range==='today'){ base=opsSnapBefore(metric,today); cap='added today'; }
   else if(range==='this_week'){ base=opsSnapBefore(metric,_isoWeekStart()); cap='added this week'; }
   else if(range==='this_month'){ base=opsSnapBefore(metric,_isoMonthStart(0)); cap='added this month'; }
-  if(base==null) return {n:'—',cap:cap};
+  if(base==null) return {n:'—',cap:'collecting…'};
   const d=cur-base; return {n:(d>=0?'+':'')+nf.format(d),cap:cap};
 }
 function renderOps(range){

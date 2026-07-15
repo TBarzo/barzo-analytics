@@ -269,6 +269,21 @@ TEMPLATE = r"""<!DOCTYPE html>
   .viewall:hover{border-color:var(--accent);color:var(--accent)}
   .viewall.is-disabled{opacity:.45;cursor:default}
   .viewall.is-disabled:hover{border-color:var(--border);color:var(--muted)}
+  .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
+  .modal-panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;width:min(760px,100%);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
+  .modal-head h3{margin:0;font-size:17px;font-weight:650}
+  .mcount{font-size:12px;color:var(--muted);margin-top:3px;display:block}
+  .modal-x{background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 9px;border-radius:8px;line-height:1}
+  .modal-x:hover{color:#fff;background:var(--panel-2)}
+  .modal-body{padding:10px 22px 22px;overflow-y:auto}
+  .mrow{display:grid;grid-template-columns:34px 210px 1fr 64px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .mrank{font-size:12px;color:var(--muted);text-align:right}
+  .mlabel{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mbarwrap{background:var(--panel-2);border-radius:6px;height:16px;overflow:hidden}
+  .mbar{height:100%;border-radius:6px;min-width:3px}
+  .mval{font-size:13px;font-weight:650;text-align:right}
+  @media (max-width:640px){.mrow{grid-template-columns:26px 110px 1fr 48px;gap:8px}}
   .s4{grid-column:span 4}.s6{grid-column:span 6}.s8{grid-column:span 8}.s12{grid-column:span 12}
   .funnel{display:flex;align-items:center;justify-content:space-around;gap:16px;padding:8px 0 4px}
   .funnel .step{text-align:center;flex:1}.funnel .step .n{font-size:34px;font-weight:750}
@@ -329,6 +344,12 @@ TEMPLATE = r"""<!DOCTYPE html>
   </section>
 </main>
 <footer>Barzo Analytics · data from PostHog · rebuilt hourly · showing <span id="gen"></span></footer>
+<div id="modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal-panel">
+    <div class="modal-head"><div><h3 id="modalTitle"></h3><span id="modalCount" class="mcount"></span></div><button class="modal-x" onclick="closeModal()" aria-label="Close">✕</button></div>
+    <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
 <script>
 const DATA = /*__DATA__*/{};
 const RED="#E4002B",WHITE="#EDEDED",AMBER="#F5A623",TEAL="#3BC9B0",BLUE="#5B8DEF",PURPLE="#B58CFF";
@@ -348,23 +369,33 @@ function mk(id,cfg){ if(CHARTS[id]){CHARTS[id].destroy();} CHARTS[id]=new Chart(
 function lineChart(id,labels,datasets,plugins){mk(id,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:plugins||noLegend,scales:{x:axis({grid:{display:false}}),y:axis({beginAtZero:true})}}});}
 function barChart(id,labels,data){mk(id,{type:'bar',data:{labels,datasets:[{data,backgroundColor:RED,borderRadius:4,maxBarThickness:26}]},options:{responsive:true,maintainAspectRatio:false,plugins:noLegend,scales:{x:axis({grid:{display:false}}),y:axis({beginAtZero:true})}}});}
 function hbar(id,cfg,color){mk(id,{type:'bar',data:{labels:cfg.labels,datasets:[{data:cfg.data,backgroundColor:color||RED,borderRadius:4,maxBarThickness:22}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:noLegend,scales:{x:axis({beginAtZero:true}),y:axis({grid:{display:false}})}}});}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function drawBreakdown(id,cfg,color){
   const canvas=document.getElementById(id); if(!canvas) return;
-  const box=canvas.parentElement, card=canvas.closest('.card');
+  const card=canvas.closest('.card');
   const total=(cfg.labels||[]).length;
-  const isExp=!!expanded[id];
-  const n=isExp?total:Math.min(DEFAULT_ROWS,total);
-  const cut={labels:cfg.labels.slice(0,n),data:cfg.data.slice(0,n)};
-  box.style.height=Math.max(180,n*30+24)+'px';
-  hbar(id,cut,color);
+  const n=Math.min(DEFAULT_ROWS,total);
+  hbar(id,{labels:cfg.labels.slice(0,n),data:cfg.data.slice(0,n)},color);
+  const title=(card.querySelector('h3')||{}).textContent||'Details';
   let btn=document.getElementById('x_'+id);
-  if(!btn){btn=document.createElement('button');btn.id='x_'+id;btn.className='viewall';
-    btn.addEventListener('click',function(){ if(total<=DEFAULT_ROWS) return; expanded[id]=!expanded[id];drawBreakdown(id,cfg,color);});
-    card.appendChild(btn);}
-  btn.style.display='';
-  if(total<=DEFAULT_ROWS){ btn.textContent='All '+total+' shown'; btn.classList.add('is-disabled'); }
-  else { btn.textContent=isExp?'Show less ▴':('View all '+total+' ▾'); btn.classList.remove('is-disabled'); }
+  if(!btn){btn=document.createElement('button');btn.id='x_'+id;btn.className='viewall';card.appendChild(btn);}
+  btn.textContent='View all '+total+'  ⤢';
+  btn.onclick=function(){ openModal(title,cfg,color); };
 }
+function openModal(title,cfg,color){
+  const max=Math.max.apply(null,(cfg.data.length?cfg.data:[1]));
+  const rows=cfg.labels.map(function(l,i){
+    const v=cfg.data[i]||0, w=Math.max(3,Math.round(100*v/(max||1)));
+    return '<div class="mrow"><div class="mrank">'+(i+1)+'</div><div class="mlabel" title="'+esc(l)+'">'+esc(l)+'</div>'
+      +'<div class="mbarwrap"><div class="mbar" style="width:'+w+'%;background:'+(color||RED)+'"></div></div>'
+      +'<div class="mval">'+nf.format(v)+'</div></div>';
+  }).join('');
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalCount').textContent=cfg.labels.length+' total · '+(DATA.rangeLabels[sel.value]||sel.value);
+  document.getElementById('modalBody').innerHTML=rows||'<div style="color:var(--muted);padding:20px 0">No data.</div>';
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){document.getElementById('modal').style.display='none';}
 function doughnut(id,cfg){mk(id,{type:'doughnut',data:{labels:cfg.labels,datasets:[{data:cfg.data,backgroundColor:PALETTE,borderColor:"#0F0F0F",borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,color:"#B5B5B5"}}}}});}
 
 function render(key){
@@ -398,6 +429,7 @@ sel.addEventListener('change',()=>{try{localStorage.setItem('barzo_range',sel.va
 
 render(initial);
 document.getElementById('updated').textContent='Updated '+new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 </script>
 </body>
 </html>

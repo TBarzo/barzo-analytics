@@ -563,7 +563,7 @@ function _isoWeekStart(){ const d=new Date(); const wd=(d.getDay()+6)%7; return 
 function opsSnapBefore(metric,dateISO){ const s=(DATA.opsHistory||[]).filter(function(x){return x.date<dateISO && x[metric]!=null;}).sort(function(a,b){return a.date<b.date?1:-1;}); return s.length?s[0][metric]:null; }
 function opsVal(metric,range){
   const cur=(DATA.ops&&DATA.ops[metric])||0;
-  if(range==='all') return {n:cfmt.format(cur),cap:'total'};
+  if(range==='all') return {n:nf.format(cur),cap:'total'};
   const today=new Date().toISOString().slice(0,10);
   if(range==='last_month'){ const endB=opsSnapBefore(metric,_isoMonthStart(0)), startB=opsSnapBefore(metric,_isoMonthStart(-1)); if(endB==null||startB==null) return {n:'—',cap:'added last month'}; const d=endB-startB; return {n:(d>=0?'+':'')+nf.format(d),cap:'added last month'}; }
   let base=null, cap='added';

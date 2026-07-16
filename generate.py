@@ -54,6 +54,8 @@ CREATORS = [
     {"name": "Rodney Charelus", "handle": "Rodneyc3", "id": "b739d3c9-27fc-4d30-ada9-5b2e9f247d93", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/b739d3c9-27fc-4d30-ada9-5b2e9f247d93/content/IMG_7318.jpeg", "followers": 11, "following": 21, "posts": 18, "likes": 48},
     {"name": "Broderick Scott", "handle": "Buckwheat", "id": "908355d1-134b-4bf7-ac19-96a694129cc3", "img": "", "followers": 4, "following": 3, "posts": 2, "likes": 6},
     {"name": "AJ Hall", "handle": "AJHALLSELECTS", "id": "2f422da9-5ef7-4aa2-b1ee-a199c2ce9c19", "img": "", "followers": 0, "following": 1, "posts": 0, "likes": 0},
+    {"name": "Francesca Stockert", "handle": "partycharming", "id": "51ab8b31-6bd7-4915-8d1c-25ae67fe97a9", "img": "https://d1jrh1izqpu5zr.cloudfront.net/supabase/users/51ab8b31-6bd7-4915-8d1c-25ae67fe97a9-avatar.jpeg", "followers": 62, "following": 233, "posts": 89, "likes": 410},
+    {"name": "Brenden Cotroneo", "handle": "savvy813", "id": "dd66723f-f92d-46ca-abcd-487e4125278a", "img": "https://d1jrh1izqpu5zr.cloudfront.net/users/dd66723f-f92d-46ca-abcd-487e4125278a/content/83629949-A861-47D8-8150-2C8B4726ACC3.jpeg", "followers": 28, "following": 51, "posts": 51, "likes": 139},
 ]
 
 def current_creators():

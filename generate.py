@@ -402,7 +402,7 @@ TEMPLATE = r"""<!DOCTYPE html>
 <main>
   <section class="section"><div class="section-head"><h2>Key Metrics</h2><div class="rule"></div></div><div class="kpis" id="kpis"></div></section>
   <section class="section" id="creatorsSection" style="display:none"><div class="section-head"><h2>Creators</h2>
-    <select id="creatorRange" class="crsel"><option value="all">All time</option><option value="this_month">This month</option><option value="last_month">Last month</option></select>
+    <select id="creatorRange" class="crsel"><option value="all">All time</option><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="this_month">This month</option><option value="last_month">Last month</option></select>
     <div class="rule"></div></div>
     <div class="grid" id="creators"></div>
   </section>
@@ -537,9 +537,13 @@ function _snap(id,stat,fromISO,toISO,first){
   if(!s.length) return null; s.sort(function(a,b){return a.date<b.date?-1:1;});
   return pnum((first?s[0]:s[s.length-1]).stats[id][stat]);
 }
+function _snapBefore(id,stat,dateISO){ const s=(DATA.creatorHistory||[]).filter(function(x){return x.date<dateISO && x.stats&&x.stats[id]&&x.stats[id][stat]!=null;}).sort(function(a,b){return a.date<b.date?1:-1;}); return s.length?pnum(s[0].stats[id][stat]):null; }
+function _snapOnOrBefore(id,stat,dateISO){ const s=(DATA.creatorHistory||[]).filter(function(x){return x.date<=dateISO && x.stats&&x.stats[id]&&x.stats[id][stat]!=null;}).sort(function(a,b){return a.date<b.date?1:-1;}); return s.length?pnum(s[0].stats[id][stat]):null; }
 function creatorVal(c,stat,range){
   if(range==='all') return cfmt.format(pnum(c[stat]));
   const cur=pnum(c[stat]), today=new Date().toISOString().slice(0,10);
+  if(range==='today'){ const base=_snapBefore(c.id,stat,today); if(base==null) return '—'; const d=cur-base; return (d>=0?'+':'')+nf.format(d); }
+  if(range==='yesterday'){ const yest=new Date(Date.now()-864e5).toISOString().slice(0,10); const a=_snapOnOrBefore(c.id,stat,yest), b=_snapBefore(c.id,stat,yest); if(a==null||b==null) return '—'; const d=a-b; return (d>=0?'+':'')+nf.format(d); }
   if(range==='this_month'){ const base=_snap(c.id,stat,_isoMonthStart(0),today,true); if(base==null) return '—'; const d=cur-base; return (d>=0?'+':'')+nf.format(d); }
   if(range==='last_month'){ const a=_snap(c.id,stat,_isoMonthStart(-1),_isoMonthEnd(-1),true), b=_snap(c.id,stat,_isoMonthStart(-1),_isoMonthEnd(-1),false); if(a==null||b==null) return '—'; const d=b-a; return (d>=0?'+':'')+nf.format(d); }
   return String(c[stat]);
@@ -557,7 +561,7 @@ if(DATA.creators && DATA.creators.length){
   document.getElementById('creatorsSection').style.display='';
   const cr=document.getElementById('creatorRange');
   let cs=null; try{cs=localStorage.getItem('barzo_creator_range');}catch(e){}
-  if(cs && ['all','this_month','last_month'].indexOf(cs)>=0) cr.value=cs;
+  if(cs && ['all','today','yesterday','this_month','last_month'].indexOf(cs)>=0) cr.value=cs;
   cr.addEventListener('change',function(){try{localStorage.setItem('barzo_creator_range',cr.value);}catch(e){}; renderCreators(cr.value);});
   renderCreators(cr.value);
 }

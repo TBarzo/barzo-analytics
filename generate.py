@@ -33,9 +33,20 @@ def build_ranges():
     last_end = mstart - datetime.timedelta(days=1)
     last_start = last_end.replace(day=1)
     iso = lambda x: x.isoformat()
+    # Business "day" = 10:00 AM -> 9:00 AM next day, US Eastern (tracks EST/EDT).
+    try:
+        from zoneinfo import ZoneInfo
+        ET = ZoneInfo("America/New_York")
+    except Exception:
+        ET = datetime.timezone(datetime.timedelta(hours=-4))  # fallback: EDT
+    now_et = datetime.datetime.now(ET)
+    ten_today = now_et.replace(hour=10, minute=0, second=0, microsecond=0)
+    biz_start = ten_today if now_et >= ten_today else ten_today - datetime.timedelta(days=1)
+    biz_prev_start = biz_start - datetime.timedelta(days=1)          # 10:00 AM the prior business day
+    biz_prev_end = biz_start - datetime.timedelta(hours=1)           # 09:00 AM (end of prior business day)
     return [
-        ("today",      "Today",        iso(t) + "T00:00:00",          None,                      "hour"),
-        ("yesterday",  "Yesterday",    iso(y) + "T00:00:00",          iso(y) + "T23:59:59",      "hour"),
+        ("today",      "Today (10am–9am)",     biz_start.isoformat(),      None,                        "hour"),
+        ("yesterday",  "Yesterday (10am–9am)", biz_prev_start.isoformat(), biz_prev_end.isoformat(),     "hour"),
         ("24h",        "Last 24 hours","-24h",                        None,                      "hour"),
         ("this_week",  "This week",    iso(monday) + "T00:00:00",     None,                      "day"),
         ("7d",         "Last 7 days",  "-7d",                         None,                      "day"),
